@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DopaTrack – Bien-être & Dopamine (HTML)</title>
+  <meta name="description" content="Suivi dopamine immédiate vs durable, routine personnalisée, detox et métriques bien-être – application HTML standalone (localStorage)." />
+  <style>
+    /* ─────────────────────────────────────────────────────────────────
+       DopaTrack – Single‑file HTML App (no backend)
+       Design: clair, guidé, inspiré Apple (grande respiration, typographie nette)
+       ----------------------------------------------------------------
+    */
+    :root { --bg:#f6f7fb; --fg:#0b0c10; --muted:#667085; --card:#ffffff; --elev:#fbfbfe; --border:#e6e8ee; --accent:#0b0c10; --good:#16a34a; --bad:#dc2626; --shadow: 0 10px 20px rgba(0,0,0,.05), 0 1px 2px rgba(0,0,0,.04); }
+    @media (prefers-color-scheme: dark){
+      :root { --bg:#0b0c10; --fg:#E5E7EB; --muted:#98a2b3; --card:#0f1116; --elev:#0c0e13; --border:#1e293b; --accent:#E5E7EB; --shadow: 0 12px 24px rgba(0,0,0,.35); }
+    }
+    html, body { height:100%; }
+    body { margin:0; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial; background:var(--bg); color:var(--fg); }
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+
+    /* Top hero */
+    .hero { background: linear-gradient(180deg, rgba(0,0,0,.04), transparent); border-radius: 24px; padding: 18px 16px; border:1px solid var(--border); box-shadow: var(--shadow); }
+    .brand { display:flex; align-items:center; gap:10px }
+    .logo { width:28px; height:28px; border-radius:8px; background:radial-gradient(circle at 30% 30%, #8b5cf6, #06b6d4); }
+    .title-xl { font-size: 22px; font-weight: 700; margin: 0 }
+    .sub { color:var(--muted); font-size:13px }
+
+    /* Tabs */
+    .tabs { display:flex; gap:8px; flex-wrap:wrap; }
+    .tab { padding:10px 14px; border:1px solid var(--border); background:var(--card); border-radius:14px; cursor:pointer; font-weight:600; box-shadow: var(--shadow); display:flex; align-items:center; gap:8px }
+    .tab[aria-selected="true"]{ outline:2px solid #000; outline-color: color-mix(in oklab, var(--accent) 60%, transparent); }
+    .badge { font-size:11px; padding:2px 6px; border-radius:999px; border:1px solid var(--border); background:var(--elev); }
+
+    .grid { display:grid; gap:16px; }
+    @media(min-width: 900px){ .grid-2{ grid-template-columns: 1.25fr 1fr } .grid-3{ grid-template-columns: repeat(3,1fr) } }
+    .card { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:16px; box-shadow: var(--shadow); }
+    .title { font-size: 18px; font-weight: 700; margin: 4px 0 12px; }
+    .muted { color: var(--muted); font-size: 13px; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+    .btn { padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--card); cursor:pointer; box-shadow: var(--shadow); }
+    .btn.primary { background:var(--accent); color: #fff; border-color: var(--accent); }
+    .btn.ghost { background:transparent; box-shadow:none }
+    .input, select, textarea { width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:var(--card); color:var(--fg) }
+    label { font-size: 12px; color: var(--muted); display:block; margin-bottom:4px }
+    .kpi { display:flex; flex-direction:column; gap:4px; }
+    .kpi .v { font-size: 26px; font-weight: 700 }
+    .pill { padding:4px 8px; border-radius:999px; border:1px solid var(--border); font-size:12px }
+    .pill.good{ color:var(--good); border-color: var(--good) }
+    .pill.bad{ color:var(--bad); border-color: var(--bad) }
+    .list { display:flex; flex-direction:column; gap:8px }
+    .divider { height:1px; background:var(--border); margin:8px 0 }
+    details > summary { cursor:pointer; user-select:none; font-weight:600 }
+    .footnote { font-size:12px; color: var(--muted) }
+    .danger { color: var(--bad) }
+    .success { color: var(--good) }
+
+    /* Coach bar */
+    .coach { position: sticky; bottom: 12px; z-index: 10; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border:1px solid var(--border); background:var(--card); border-radius:14px; box-shadow: var(--shadow); }
+
+    /* Empty states */
+    .empty { border:1px dashed var(--border); background:var(--elev); padding:16px; border-radius:16px; font-size:13px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="hero" role="banner" aria-label="En-tête">
+      <div class="row" style="justify-content:space-between">
+        <div class="brand">
+          <div class="logo" aria-hidden="true"></div>
+          <div>
+            <h1 class="title-xl">DopaTrack</h1>
+            <div class="sub">Comprends, mesure et équilibre ta dopamine – immédiate vs durable.</div>
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn" id="btn-tour">🧭 Guide</button>
+          <button class="btn" id="btn-help">❓ Aide</button>
+        </div>
+      </div>
+      <nav class="tabs" id="tabs" role="tablist" style="margin-top:12px">
+        <button class="tab" role="tab" aria-selected="true" data-tab="dashboard">🏠 Tableau <span class="badge" id="b-total">0</span></button>
+        <button class="tab" role="tab" data-tab="journal">📝 Journal</button>
+        <button class="tab" role="tab" data-tab="routine">🧱 Routine <span class="badge" id="b-routine">0/0</span></button>
+        <button class="tab" role="tab" data-tab="detox">🧹 Detox <span class="badge" id="b-detox">—</span></button>
+        <button class="tab" role="tab" data-tab="profil">🧠 Profil</button>
+        <button class="tab" role="tab" data-tab="data">📦 Données</button>
+      </nav>
+    </header>
+
+    <section class="footnote card" style="margin-top:12px" aria-live="polite">
+      <strong>Important :</strong> application d’auto‑suivi éducative. Ne remplace pas un avis médical.
+    </section>
+
+    <!-- DASHBOARD -->
+    <main id="dashboard" class="grid grid-2" role="region" aria-labelledby="tab-dashboard">
+      <section class="card">
+        <div class="title">Jauge dopamine (aujourd’hui)</div>
+        <div class="muted">Objectif : viser ~2/3 durable – 1/3 immédiate. Ajoute au moins une activité durable.</div>
+        <div class="row" style="justify-content:space-between; align-items:flex-start; margin-top:8px">
+          <div id="gauge"></div>
+          <div style="min-width:260px">
+            <div class="kpi"><span class="muted">Total</span><span class="v" id="kpi-total">0</span></div>
+            <div class="row" style="margin-top:8px">
+              <span class="pill good">Durable: <b id="kpi-durable">0</b></span>
+              <span class="pill bad">Imméd.: <b id="kpi-immediate">0</b></span>
+            </div>
+            <div class="divider"></div>
+            <div class="muted" id="advice"></div>
+          </div>
+        </div>
+      </section>
+      <section class="card">
+        <div class="title">Tendance 30 jours</div>
+        <div class="muted">Visualise la charge globale de dopamine au fil du temps.</div>
+        <div id="trend" aria-label="Graphique des 30 derniers jours" style="margin-top:8px"></div>
+      </section>
+      <section class="card">
+        <div class="title">Actions rapides</div>
+        <div class="row">
+          <button class="btn primary" data-open="add-activity">+ Ajouter une activité</button>
+          <button class="btn" data-open="rate-metrics">⭐ Noter ma journée</button>
+          <button class="btn" data-open="quick-detox">🎯 Objectif detox</button>
+        </div>
+        <div id="empty-dashboard" class="empty" style="margin-top:10px" hidden>
+          C’est vide. Commence par <b>ajouter une activité</b> (durable de préférence) ou <b>fixer un objectif detox</b>.
+        </div>
+      </section>
+
+      <section class="coach" id="coach" aria-live="polite"></section>
+    </main>
+
+    <!-- JOURNAL -->
+    <main id="journal" class="card" hidden>
+      <div class="title">Journal d’activités</div>
+      <div class="muted">Que faire ici ? Choisis une activité, indique quantité et durée, puis « Ajouter ».</div>
+      <div class="row" style="justify-content:space-between; margin-top:8px">
+        <input id="journal-date" type="date" class="input" style="width:auto" />
+        <div class="row">
+          <button class="btn" id="open-add">+ Ajouter</button>
+          <button class="btn" id="quick-durable">🌿 Ajouter 20 min de lecture</button>
+        </div>
+      </div>
+      <div class="row" style="margin:8px 0">
+        <select id="tpl-select" style="min-width:260px"></select>
+        <input id="qty" type="number" min="1" class="input" style="width:120px" placeholder="Quantité" />
+        <input id="duration" type="number" min="1" class="input" style="width:160px" placeholder="Durée (min)" />
+        <button class="btn primary" id="add-entry">Ajouter</button>
+      </div>
+      <div id="entries" class="list" aria-live="polite"></div>
+      <div id="empty-journal" class="empty" hidden>Aucune entrée ce jour. Essaie : <button class="btn" data-open="add-activity">Ajouter une activité</button></div>
+    </main>
+
+    <!-- ROUTINE -->
+    <main id="routine" class="grid grid-2" hidden>
+      <section class="card">
+        <div class="title">Routine fondatrice (max 3)</div>
+        <div class="muted">Choisis 2–3 piliers durables (ex : sport, méditation, lecture). Option : ajouter automatiquement des points.</div>
+        <div id="routine-builder" style="margin-top:8px"></div>
+      </section>
+      <section class="card">
+        <div class="title">Ma routine aujourd’hui</div>
+        <div class="row" style="justify-content:space-between">
+          <div class="muted">Coche quand c’est fait. <label style="display:inline-block;margin-left:8px"><input id="auto-award" type="checkbox" /> Ajouter des points auto</label></div>
+          <div id="routine-progress" class="pill"></div>
+        </div>
+        <div id="routine-today" class="list" style="margin-top:8px"></div>
+      </section>
+    </main>
+
+    <!-- DETOX -->
+    <main id="detox" class="grid grid-2" hidden>
+      <section class="card">
+        <div class="title">Plan detox</div>
+        <div class="muted">Sélectionne une habitude immédiate à réduire progressivement.</div>
+        <div class="row" style="margin:8px 0">
+          <select id="detox-activity" style="min-width:260px"></select>
+          <input id="detox-baseline" type="number" min="0" class="input" style="width:140px" placeholder="Baseline/j" />
+          <input id="detox-target" type="number" min="0" class="input" style="width:140px" placeholder="Cible/j" />
+          <button class="btn primary" id="save-detox">Enregistrer</button>
+        </div>
+        <div class="footnote">Ex : réseaux sociaux de 8 → 3 sessions/j, puis 2.</div>
+      </section>
+      <section class="card">
+        <div class="title">Suivi detox</div>
+        <div class="row">
+          <button class="btn" id="detox-mark">+1 session évitée</button>
+          <div id="detox-stats" class="pill"></div>
+        </div>
+        <div class="divider"></div>
+        <ul id="detox-tips" class="list"></ul>
+      </section>
+    </main>
+
+    <!-- PROFIL -->
+    <main id="profil" class="grid grid-2" hidden>
+      <section class="card">
+        <div class="title">Évaluer mon profil dopamine</div>
+        <form id="profile-form" class="list">
+          <div>
+            <label>Impulsivité numérique (scroll, notifications)</label>
+            <input type="range" min="0" max="4" value="2" name="q1" />
+          </div>
+          <div>
+            <label>Récompense rapide (sucre, achat impulsif)</label>
+            <input type="range" min="0" max="4" value="2" name="q2" />
+          </div>
+          <div>
+            <label>Énergie soutenue sans stimulants</label>
+            <input type="range" min="0" max="4" value="2" name="q3" />
+          </div>
+          <div>
+            <label>Capacité à rester en concentration profonde (30+ min)</label>
+            <input type="range" min="0" max="4" value="2" name="q4" />
+          </div>
+          <div>
+            <label>Qualité du sommeil (réveil naturel)</label>
+            <input type="range" min="0" max="4" value="2" name="q5" />
+          </div>
+          <button class="btn primary" type="submit">Calculer mon profil</button>
+        </form>
+      </section>
+      <section class="card">
+        <div class="title">Résultat & recommandations</div>
+        <div id="profile-result" class="list"></div>
+      </section>
+    </main>
+
+    <!-- DATA -->
+    <main id="data" class="grid grid-2" hidden>
+      <section class="card">
+        <div class="title">Export / Import</div>
+        <div class="row">
+          <button class="btn" id="export">Exporter JSON</button>
+          <label class="btn" for="import">Importer JSON</label>
+          <input id="import" type="file" accept="application/json" hidden />
+          <button class="btn danger" id="reset">Réinitialiser</button>
+        </div>
+        <div class="footnote">Tes données restent sur cet appareil (localStorage). Tu peux relancer le guide d’accueil à tout moment.</div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="restart-onboarding">Relancer le guide d’accueil</button>
+        </div>
+      </section>
+      <section class="card">
+        <div class="title">Noter ma journée (métriques)</div>
+        <form id="metrics-form" class="list">
+          <div class="grid grid-3">
+            <div><label>Humeur</label><input type="range" min="0" max="10" value="5" name="mood" /></div>
+            <div><label>Énergie</label><input type="range" min="0" max="10" value="5" name="energy" /></div>
+            <div><label>Concentration</label><input type="range" min="0" max="10" value="5" name="focus" /></div>
+            <div><label>Sommeil</label><input type="range" min="0" max="10" value="5" name="sleep" /></div>
+            <div><label>Confiance</label><input type="range" min="0" max="10" value="5" name="confidence" /></div>
+          </div>
+          <button class="btn primary" type="submit">Enregistrer</button>
+        </form>
+        <div id="metrics-trends" style="margin-top:8px"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Entry template -->
+  <template id="entry-row">
+    <div class="card" data-id="">
+      <div class="row" style="justify-content:space-between">
+        <div class="row">
+          <div class="pill" data-type="">Type</div>
+          <div style="font-weight:600;margin-left:8px" data-name>Nom</div>
+        </div>
+        <div class="row">
+          <span class="muted">Points:</span><b style="margin-left:6px" data-pts>0</b>
+        </div>
+      </div>
+      <div class="row muted" style="justify-content:space-between; margin-top:6px">
+        <div>Qté: <span data-qty>1</span> • Durée: <span data-dur>-</span></div>
+        <div class="row">
+          <button class="btn ghost" data-action="edit">Modifier</button>
+          <button class="btn ghost danger" data-action="delete">Supprimer</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Add activity dialog -->
+  <dialog id="dlg-add" style="border:none;border-radius:16px;max-width:560px;width:100%">
+    <form method="dialog" class="card">
+      <div class="title">Ajouter une activité</div>
+      <div class="row">
+        <select id="dlg-tpl" style="min-width:260px"></select>
+        <input id="dlg-qty" type="number" min="1" class="input" style="width:120px" placeholder="Quantité" />
+        <input id="dlg-duration" type="number" min="1" class="input" style="width:160px" placeholder="Durée (min)" />
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px">
+        <button class="btn" value="cancel">Annuler</button>
+        <button class="btn primary" value="ok">Ajouter</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Metrics dialog -->
+  <dialog id="dlg-metrics" style="border:none;border-radius:16px;max-width:520px;width:100%">
+    <form method="dialog" class="card">
+      <div class="title">Noter ma journée</div>
+      <div class="grid grid-3">
+        <div><label>Humeur</label><input id="dm-mood" type="range" min="0" max="10" value="5"></div>
+        <div><label>Énergie</label><input id="dm-energy" type="range" min="0" max="10" value="5"></div>
+        <div><label>Concentration</label><input id="dm-focus" type="range" min="0" max="10" value="5"></div>
+        <div><label>Sommeil</label><input id="dm-sleep" type="range" min="0" max="10" value="5"></div>
+        <div><label>Confiance</label><input id="dm-confidence" type="range" min="0" max="10" value="5"></div>
+      </div>
+      <div class="row" style="justify-content:flex-end;margin-top:8px">
+        <button class="btn" value="cancel">Fermer</button>
+        <button class="btn primary" value="ok">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Onboarding dialog (multi-étapes) -->
+  <dialog id="dlg-onboard" style="border:none;border-radius:16px;max-width:720px;width:100%">
+    <form method="dialog" class="card" id="onboard-form">
+      <div class="title">Bienvenue sur DopaTrack</div>
+      <div class="muted">Quelques questions pour personnaliser ton expérience. (~1 min)</div>
+      <div class="divider"></div>
+      <div id="ob-step"></div>
+      <div class="row" style="justify-content:space-between; margin-top:8px">
+        <button class="btn" value="back" id="ob-back">Retour</button>
+        <div class="row">
+          <button class="btn" value="cancel">Plus tard</button>
+          <button class="btn primary" value="next" id="ob-next">Suivant</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+  // ===== Core data & helpers ==================================================
+  const STORE_KEY = 'dopatrack_store_v2';
+  const $ = (sel, el=document) => el.querySelector(sel);
+  const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+  const todayKey = () => new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD
+
+  const defaultStore = () => ({
+    user: { name: '', goal: '' },
+    entries: {},        // dateKey → Entry[]
+    metrics: {},        // dateKey → Metric
+    routine: { items: [], checks: {} },
+    detox: null,        // { targetTemplateId, baselinePerDay, targetPerDay, startDate, avoidedCount }
+    profile: null       // { segment, scores }
+  });
+
+  let store = loadStore();
+  function loadStore(){
+    try { return JSON.parse(localStorage.getItem(STORE_KEY)) || defaultStore(); }
+    catch { return defaultStore(); }
+  }
+  function saveStore(){ localStorage.setItem(STORE_KEY, JSON.stringify(store)); }
+
+  // Activity catalog (diversifié)
+  const ACTIVITY_TEMPLATES = [
+    // Immédiate (reward rapide)
+    { id:'cig', name:'Cigarette', type:'immediate', basePoints:100, unit:'cig', defaultDuration:5 },
+    { id:'sugar', name:'Nourriture sucrée', type:'immediate', basePoints:60, unit:'portion', defaultDuration:10 },
+    { id:'social', name:'Réseaux sociaux (15 min)', type:'immediate', basePoints:50, unit:'session', defaultDuration:15 },
+    { id:'energy', name:'Boisson énergétique', type:'immediate', basePoints:65, unit:'canette', defaultDuration:5 },
+    { id:'alcohol', name:'Alcool (1 verre)', type:'immediate', basePoints:70, unit:'verre', defaultDuration:30 },
+    { id:'gaming', name:'Jeux vidéo (30 min)', type:'immediate', basePoints:55, unit:'session', defaultDuration:30 },
+    { id:'fastfood', name:'Fast‑food', type:'immediate', basePoints:75, unit:'repas', defaultDuration:20 },
+
+    // Durable (fondatrice)
+    { id:'sport', name:'Sport modéré (30 min)', type:'durable', basePoints:80, unit:'session', defaultDuration:30 },
+    { id:'nature', name:'Prendre l’air / nature', type:'durable', basePoints:40, unit:'sortie', defaultDuration:20 },
+    { id:'medit', name:'Méditation', type:'durable', basePoints:35, unit:'session', defaultDuration:10 },
+    { id:'deep', name:'Deep work (60 min)', type:'durable', basePoints:70, unit:'session', defaultDuration:60 },
+    { id:'read', name:'Lecture profonde (20 min)', type:'durable', basePoints:45, unit:'session', defaultDuration:20 },
+    { id:'yoga', name:'Yoga/Respiration (15 min)', type:'durable', basePoints:40, unit:'session', defaultDuration:15 },
+    { id:'music', name:'Musique active (jouer/chanter)', type:'durable', basePoints:35, unit:'session', defaultDuration:20 },
+    { id:'cold', name:'Douche froide (2–3 min)', type:'durable', basePoints:30, unit:'session', defaultDuration:3 },
+    { id:'sauna', name:'Sauna (10–15 min)', type:'durable', basePoints:35, unit:'session', defaultDuration:15 },
+    { id:'protein', name:'Repas protéiné équilibré', type:'durable', basePoints:30, unit:'repas', defaultDuration:20 },
+    { id:'fruit', name:'Fruits & eau (collation)', type:'durable', basePoints:20, unit:'collation', defaultDuration:5 },
+    { id:'volunteer', name:'Service/Bénévolat', type:'durable', basePoints:50, unit:'action', defaultDuration:60 }
+  ];
+  const TPL_MAP = new Map(ACTIVITY_TEMPLATES.map(t => [t.id, t]));
+
+  function computePoints(base, qty=1, durMin=null, defDur=null){
+    const q = Math.max(0, Number(qty)||1);
+    const m = (durMin && defDur) ? Math.max(0.25, durMin/defDur) : 1;
+    return Math.round(base * q * m);
+  }
+
+  function ensureDay(dateKey){
+    if(!store.entries[dateKey]) store.entries[dateKey] = [];
+    if(!store.metrics[dateKey]) store.metrics[dateKey] = { mood:5, energy:5, focus:5, sleep:5, confidence:5 };
+    if(!store.routine.checks[dateKey]) store.routine.checks[dateKey] = {};
+  }
+
+  // ===== UI state & navigation ===============================================
+  const tabs = $('#tabs');
+  tabs.addEventListener('click', (e)=>{
+    const b = e.target.closest('[data-tab]'); if(!b) return;
+    $$('.tab', tabs).forEach(t=>t.setAttribute('aria-selected', String(t===b)));
+    const id = b.dataset.tab;
+    $$('main').forEach(m=> m.hidden = m.id !== id);
+    render();
+  });
+
+  // Quick actions
+  document.body.addEventListener('click', (e)=>{
+    const openBtn = e.target.closest('[data-open]'); if(openBtn){ handleOpen(openBtn.dataset.open); }
+  });
+
+  function handleOpen(key){
+    if(key==='add-activity'){ openAddDialog(); }
+    if(key==='rate-metrics'){ openMetricsDialog(); }
+    if(key==='quick-detox'){ $$('[data-tab="detox"]')[0].click(); }
+  }
+
+  // ===== Dashboard ============================================================
+  function dailySummary(dateKey){
+    ensureDay(dateKey);
+    const day = store.entries[dateKey];
+    let total=0, immediate=0, durable=0;
+    for(const e of day){
+      const t = TPL_MAP.get(e.templateId);
+      total += e.points;
+      if(t?.type==='durable') durable += e.points; else immediate += e.points;
+    }
+    const ratio = total>0 ? durable/total : 0;
+    const advice = recommend(total, durable, immediate, store.metrics[dateKey]);
+    return { total, immediate, durable, ratio, advice };
+  }
+
+  function recommend(total, durable, immediate, metrics){
+    if(total===0) return "Commence par 10 min de marche + 2 min de respiration.";
+    const ratio = durable/(total||1);
+    const tips = [];
+    if(ratio<0.4) tips.push("Remplace une session immédiate par 20 min de lecture/méditation.");
+    if(immediate>durable) tips.push("Limite écran (2×15 min) et planifie une sortie nature.");
+    if(metrics.sleep<5) tips.push("Coupe les écrans 60 min avant le coucher.");
+    if(metrics.energy<5) tips.push("Ajoute 30 min d’activité modérée.");
+    if(metrics.focus<5) tips.push("Bloc de deep work 25–50 min sans notifications.");
+    return tips.length? tips.join(' ') : 'Bel équilibre. Vise 2/3 durable – 1/3 immédiate.';
+  }
+
+  function renderDashboard(){
+    const dk = todayKey(); ensureDay(dk);
+    const s = dailySummary(dk);
+    $('#kpi-total').textContent = s.total;
+    $('#kpi-durable').textContent = s.durable;
+    $('#kpi-immediate').textContent = s.immediate;
+    $('#advice').textContent = s.advice;
+    $('#gauge').innerHTML = radialGauge(s.total, 0, 400);
+    $('#trend').innerHTML = trend30d();
+    $('#empty-dashboard').hidden = store.entries[dk].length>0;
+    renderCoach();
+  }
+
+  function radialGauge(value, min=0, max=400){
+    const pct = Math.max(0, Math.min(1, (value-min)/(max-min)));
+    const R = 90, cx=100, cy=100;
+    const a = Math.PI * (1 - pct);
+    const x = cx + R * Math.cos(a), y = cy + R * Math.sin(a);
+    const large = pct>0.5 ? 1 : 0;
+    const arc = `M ${cx-R},${cy} A ${R},${R} 0 ${large} 1 ${x},${y}`;
+    return `<svg width="220" height="130" viewBox="0 0 200 120" role="img" aria-label="Jauge ${Math.round(pct*100)}%">
+      <path d="M 10 100 A 90 90 0 1 1 190 100" fill="none" stroke="var(--border)" stroke-width="14" />
+      <path d="${arc}" fill="none" stroke="var(--accent)" stroke-width="14" stroke-linecap="round" />
+      <circle cx="${x}" cy="${y}" r="5" fill="var(--accent)" />
+      <text x="100" y="105" text-anchor="middle" font-size="16" fill="var(--fg)" font-weight="700">${value} pts</text>
+    </svg>`;
+  }
+
+  function trend30d(){
+    const days=30, data=[]; const today=new Date();
+    for(let i=days-1;i>=0;i--){ const d=new Date(today); d.setDate(today.getDate()-i); const k=d.toLocaleDateString('sv-SE'); const s=dailySummary(k); data.push({ d, k, v:s.total }); }
+    const w=700,h=160,p=24, max=Math.max(100, ...data.map(d=>d.v));
+    const dx=(w-2*p)/(days-1); const scaleY=v=> h-p - (h-2*p)*(v/max);
+    let path=""; data.forEach((pt,i)=>{ const x=p+i*dx, y=scaleY(pt.v); path += (i?" L ":"M ")+x+" "+y; });
+    const ticks = [0, Math.round(max/2), max];
+    const grid = ticks.map(t=>`<line x1="${p}" x2="${w-p}" y1="${scaleY(t)}" y2="${scaleY(t)}" stroke="var(--border)" />`).join('');
+    return `<svg width="100%" height="${h}" viewBox="0 0 ${w} ${h}">
+      ${grid}
+      <path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" />
+      ${data.map((pt,i)=>`<circle cx="${p+i*dx}" cy="${scaleY(pt.v)}" r="2" fill="var(--accent)" />`).join('')}
+    </svg>`;
+  }
+
+  // ===== Journal ==============================================================
+  function renderJournal(){
+    const sel = $('#tpl-select'); sel.innerHTML = optionsForTemplates();
+    if($('#journal-date')) $('#journal-date').value = todayKey();
+    drawEntries();
+  }
+
+  function optionsForTemplates(){
+    const groups = { immediate: ACTIVITY_TEMPLATES.filter(t=>t.type==='immediate'), durable: ACTIVITY_TEMPLATES.filter(t=>t.type==='durable') };
+    return [
+      `<option value="">Choisir une activité…</option>`,
+      `<optgroup label="Dopamine immédiate">${groups.immediate.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>`,
+      `<optgroup label="Dopamine durable">${groups.durable.map(t=>`<option value="${t.id}">${t.name}</option>`).join('')}</optgroup>`
+    ].join('');
+  }
+
+  $('#add-entry').addEventListener('click', ()=>{
+    const tplId = $('#tpl-select').value; if(!tplId) return alert('Choisis une activité');
+    const qty = Number($('#qty').value || 1); const dur = Number($('#duration').value || 0);
+    addEntry($('#journal-date').value || todayKey(), tplId, qty, dur);
+    $('#qty').value = ''; $('#duration').value='';
+    drawEntries(); renderDashboard(); renderNavBadges();
+  });
+  $('#open-add').addEventListener('click', openAddDialog);
+  $('#quick-durable').addEventListener('click', ()=>{ addEntry(todayKey(), 'read', 1, 20); drawEntries(); render(); });
+
+  function addEntry(dateKey, templateId, qty, duration){
+    ensureDay(dateKey);
+    const t = TPL_MAP.get(templateId); if(!t) return;
+    const e = { id: crypto.randomUUID(), templateId, qty, duration: duration||null, points: computePoints(t.basePoints, qty, duration||null, t.defaultDuration) };
+    store.entries[dateKey].push(e); saveStore();
+  }
+
+  function drawEntries(){
+    const dk = ($('#journal-date')?.value) || todayKey(); ensureDay(dk);
+    const wrap = $('#entries'); wrap.innerHTML='';
+    const list = store.entries[dk];
+    if(!list.length){ $('#empty-journal').hidden = false; } else { $('#empty-journal').hidden = true; }
+    for(const e of list){
+      const t = TPL_MAP.get(e.templateId); const node = $('#entry-row').content.firstElementChild.cloneNode(true);
+      node.dataset.id = e.id; node.querySelector('[data-type]').textContent = t.type==='durable'? 'Durable':'Imméd.';
+      node.querySelector('[data-type]').classList.add(t.type==='durable'?'good':'bad');
+      node.querySelector('[data-name]').textContent = t.name;
+      node.querySelector('[data-pts]').textContent = e.points;
+      node.querySelector('[data-qty]').textContent = e.qty;
+      node.querySelector('[data-dur]').textContent = e.duration? e.duration+' min' : '—';
+      node.addEventListener('click', (ev)=>{
+        const action = ev.target.closest('[data-action]')?.dataset.action; if(!action) return;
+        if(action==='delete') delEntry(dk, e.id);
+        if(action==='edit') editEntry(dk, e);
+      });
+      wrap.appendChild(node);
+    }
+  }
+
+  function delEntry(dateKey, id){
+    store.entries[dateKey] = store.entries[dateKey].filter(x=>x.id!==id); saveStore(); drawEntries(); renderDashboard(); renderNavBadges();
+  }
+  function editEntry(dateKey, e){
+    const qty = Number(prompt('Nouvelle quantité', String(e.qty))||e.qty);
+    const duration = Number(prompt('Nouvelle durée (min, vide=inchangé)', e.duration||'')||e.duration||0);
+    const t = TPL_MAP.get(e.templateId);
+    e.qty = qty; e.duration = duration||null; e.points = computePoints(t.basePoints, qty, e.duration, t.defaultDuration);
+    saveStore(); drawEntries(); renderDashboard(); renderNavBadges();
+  }
+
+  // Dialog add activity (quick from dashboard)
+  function openAddDialog(){
+    const dlg = $('#dlg-add'); const sel = $('#dlg-tpl'); sel.innerHTML = optionsForTemplates();
+    $('#dlg-qty').value = '1'; $('#dlg-duration').value = '';
+    dlg.showModal();
+    dlg.addEventListener('close', ()=>{
+      if(dlg.returnValue==='ok'){
+        const tplId = sel.value; if(!tplId) return;
+        const qty = Number($('#dlg-qty').value || 1);
+        const dur = Number($('#dlg-duration').value || 0);
+        addEntry(todayKey(), tplId, qty, dur); render(); renderNavBadges();
+      }
+    }, { once:true });
+  }
+
+  // ===== Routine ==============================================================
+  function renderRoutine(){
+    const durable = ACTIVITY_TEMPLATES.filter(t=>t.type==='durable');
+    const chosen = new Set(store.routine.items.map(i=>i.templateId));
+    $('#routine-builder').innerHTML = `<div class="list">${durable.map(t=>{
+      const checked = chosen.has(t.id);
+      return `<label><input type="checkbox" data-choose="${t.id}" ${checked? 'checked':''}/> ${t.name}</label>`;
+    }).join('')}<div class="divider"></div><button class="btn primary" id="save-routine">Enregistrer</button></div>`;
+
+    $('#routine-builder').addEventListener('change', (e)=>{
+      if(e.target.matches('[data-choose]')){
+        const id = e.target.getAttribute('data-choose');
+        const exists = store.routine.items.find(i=>i.templateId===id);
+        if(e.target.checked){
+          if(store.routine.items.length>=3 && !exists){ e.target.checked=false; return alert('Max 3 éléments'); }
+          if(!exists) store.routine.items.push({ templateId:id, targetPerDay:1 });
+        } else {
+          store.routine.items = store.routine.items.filter(i=>i.templateId!==id);
+        }
+        saveStore(); drawRoutineToday(); renderNavBadges();
+      }
+    });
+
+    $('#save-routine').addEventListener('click', ()=>{ alert('Routine enregistrée'); });
+
+    $('#auto-award').checked = Boolean(localStorage.getItem('auto_award'));
+    $('#auto-award').addEventListener('change', (e)=>{
+      if(e.target.checked) localStorage.setItem('auto_award','1'); else localStorage.removeItem('auto_award');
+    });
+
+    drawRoutineToday();
+  }
+
+  function drawRoutineToday(){
+    const dk = todayKey(); ensureDay(dk);
+    const wrap = $('#routine-today'); wrap.innerHTML='';
+    const checks = store.routine.checks[dk];
+    let done=0;
+    for(const it of store.routine.items){
+      const t = TPL_MAP.get(it.templateId);
+      const checked = Boolean(checks[it.templateId]); if(checked) done++;
+      const id = `chk_${it.templateId}`;
+      const row = document.createElement('div'); row.className='row';
+      row.innerHTML = `<input type="checkbox" id="${id}" ${checked?'checked':''}/> <label for="${id}">${t.name}</label>`;
+      row.querySelector('input').addEventListener('change', (ev)=>{
+        checks[it.templateId] = ev.target.checked;
+        if(ev.target.checked && localStorage.getItem('auto_award')){
+          addEntry(dk, it.templateId, 1, TPL_MAP.get(it.templateId).defaultDuration);
+        }
+        saveStore(); drawRoutineToday(); renderDashboard(); renderNavBadges();
+      });
+      wrap.appendChild(row);
+    }
+    $('#routine-progress').textContent = `${done}/${store.routine.items.length} faits`;
+  }
+
+  // ===== Detox ================================================================
+  function renderDetox(){
+    const immediate = ACTIVITY_TEMPLATES.filter(t=>t.type==='immediate');
+    $('#detox-activity').innerHTML = immediate.map(t=>`<option value="${t.id}">${t.name}</option>`).join('');
+    const d = store.detox; if(d){ $('#detox-activity').value=d.targetTemplateId; $('#detox-baseline').value = d.baselinePerDay; $('#detox-target').value = d.targetPerDay; }
+    $('#save-detox').onclick = ()=>{
+      const targetTemplateId = $('#detox-activity').value; const baselinePerDay = Number($('#detox-baseline').value||0); const targetPerDay = Number($('#detox-target').value||0);
+      if(targetPerDay>baselinePerDay) return alert('La cible doit être ≤ baseline');
+      store.detox = { targetTemplateId, baselinePerDay, targetPerDay, startDate: todayKey(), avoidedCount:0 };
+      saveStore(); alert('Plan detox enregistré'); drawDetox(); renderNavBadges();
+    };
+    $('#detox-mark').onclick = ()=>{ if(!store.detox) return; store.detox.avoidedCount++; saveStore(); drawDetox(); };
+    drawDetox();
+  }
+
+  function drawDetox(){
+    const box = $('#detox-stats'); const tips = $('#detox-tips'); tips.innerHTML='';
+    if(!store.detox){ box.textContent = 'Aucun plan actif'; return; }
+    const d = store.detox; const days = Math.max(1, Math.round((Date.now()-Date.parse(d.startDate))/86400000)+1);
+    box.textContent = `Évitements: ${d.avoidedCount} • Jours: ${days}`;
+    const t = TPL_MAP.get(d.targetTemplateId);
+    const suggestions = [
+      `Remplace ${t.name} par 10 min de marche/méditation (contraste immédiat → durable).`,
+      `Crée de la friction: retire l’app du home screen; limites 2×15 min/j.`,
+      `Signal visuel: post‑it avec l’objectif (baseline ${d.baselinePerDay} → cible ${d.targetPerDay}).`
+    ];
+    for(const s of suggestions){ const li=document.createElement('li'); li.textContent=s; tips.appendChild(li); }
+  }
+
+  // ===== Profil ===============================================================
+  function renderProfile(){
+    $('#profile-result').innerHTML='';
+    $('#profile-form').onsubmit = (e)=>{
+      e.preventDefault();
+      const f = new FormData(e.target);
+      const scores = { q1:+f.get('q1'), q2:+f.get('q2'), q3:+f.get('q3'), q4:+f.get('q4'), q5:+f.get('q5') };
+      const immediateLoad = scores.q1 + scores.q2;
+      const durableCapacity = scores.q3 + scores.q4 + scores.q5;
+      let segment = 'equilibre';
+      if(immediateLoad - durableCapacity >= 3) segment = 'dominance_immediate';
+      else if(durableCapacity - immediateLoad >= 3) segment = 'dominance_durable';
+      store.profile = { segment, scores }; saveStore();
+      showProfileResult(); renderCoach();
+    };
+    showProfileResult();
+  }
+
+  function showProfileResult(){
+    const res = $('#profile-result'); res.innerHTML='';
+    if(!store.profile){ res.innerHTML = '<div class="empty">Complète le questionnaire pour obtenir un plan personnalisé.</div>'; return; }
+    const seg = store.profile.segment;
+    let title = 'Équilibre'; let rec = [
+      'Maintiens 2 piliers (30 min sport + 10 min méditation).',
+      'Autorise des plaisirs immédiats planifiés (~20–30%).'
+    ];
+    if(seg==='dominance_immediate'){ title='Dominance dopamine immédiate'; rec = [
+      'Lance un plan detox sur 1 habitude (la plus fréquente).',
+      'Ajoute 2 piliers durables quotidiens (marche + respiration/lecture).',
+      'Fenêtre écran (2 blocs de 15–30 min).'
+    ];}
+    if(seg==='dominance_durable'){ title='Dominance durable'; rec = [
+      'Consolide sommeil & récupération (éviter sur‑contrôle).',
+      'Ajoute un loisir plaisant programmé (équilibre).'
+    ];}
+    res.innerHTML = `<div class="kpi"><span class="muted">Segment</span><span class="v">${title}</span></div>` +
+      '<div class="divider"></div>' + rec.map(r=>`<div>• ${r}</div>`).join('');
+  }
+
+  // ===== Metrics (Data tab + dialog) =========================================
+  function openMetricsDialog(){
+    const dk = todayKey(); ensureDay(dk);
+    $('#dm-mood').value = store.metrics[dk].mood;
+    $('#dm-energy').value = store.metrics[dk].energy;
+    $('#dm-focus').value = store.metrics[dk].focus;
+    $('#dm-sleep').value = store.metrics[dk].sleep;
+    $('#dm-confidence').value = store.metrics[dk].confidence;
+    const dlg = $('#dlg-metrics'); dlg.showModal();
+    dlg.addEventListener('close', ()=>{
+      if(dlg.returnValue==='ok'){
+        store.metrics[dk] = {
+          mood:+$('#dm-mood').value, energy:+$('#dm-energy').value, focus:+$('#dm-focus').value, sleep:+$('#dm-sleep').value, confidence:+$('#dm-confidence').value
+        }; saveStore(); render(); renderCoach();
+      }
+    }, { once:true });
+  }
+
+  $('#metrics-form').addEventListener('submit', (e)=>{
+    e.preventDefault(); const dk = todayKey(); ensureDay(dk);
+    const f = new FormData(e.target);
+    store.metrics[dk] = {
+      mood:+f.get('mood'), energy:+f.get('energy'), focus:+f.get('focus'), sleep:+f.get('sleep'), confidence:+f.get('confidence')
+    }; saveStore(); render(); alert('Métriques enregistrées');
+  });
+
+  function renderMetricsTrends(){
+    const wrap = $('#metrics-trends'); const metrics=['mood','energy','focus','sleep','confidence'];
+    const days=14; const today=new Date();
+    const rows=[];
+    for(const key of metrics){
+      const data=[]; for(let i=days-1;i>=0;i--){ const d=new Date(today); d.setDate(today.getDate()-i); const k=d.toLocaleDateString('sv-SE'); ensureDay(k); data.push(store.metrics[k]?.[key] ?? 0); }
+      rows.push(`<div class="row" style="align-items:center; gap:10px"><div style="width:110px" class="muted">${key}</div>${sparkline(data, 220, 40)}</div>`);
+    }
+    wrap.innerHTML = rows.join('');
+  }
+
+  function sparkline(data, w=160, h=32){
+    const p=4; const max=Math.max(10, ...data); const min=0; const dx=(w-2*p)/(data.length-1); const sy=v=> h-p-(h-2*p)*((v-min)/(max-min||1));
+    let path=''; data.forEach((v,i)=>{ const x=p+i*dx, y=sy(v); path+=(i?' L ':'M ')+x+' '+y; });
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2" /></svg>`;
+  }
+
+  // ===== Data export/import ===================================================
+  $('#export').onclick = ()=>{
+    const blob = new Blob([JSON.stringify(store,null,2)], { type:'application/json' });
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `dopatrack_${todayKey()}.json` });
+    document.body.appendChild(a); a.click(); URL.revokeObjectURL(a.href); a.remove();
+  };
+  $('#import').addEventListener('change', async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    const text = await file.text();
+    try { const json = JSON.parse(text); store = json; saveStore(); render(); alert('Import OK'); }
+    catch { alert('Fichier invalide'); }
+  });
+  $('#reset').onclick = ()=>{ if(confirm('Supprimer toutes les données locales ?')){ store = defaultStore(); saveStore(); render(); } };
+  $('#restart-onboarding').onclick = ()=>{ localStorage.removeItem('onboarding_complete'); openOnboarding(); };
+
+  // ===== Coach (guidance) =====================================================
+  function renderCoach(){
+    const dk = todayKey(); ensureDay(dk);
+    const s = dailySummary(dk);
+    const coach = $('#coach');
+    const hasRoutine = store.routine.items.length>0;
+    const hasDetox = Boolean(store.detox);
+    const hasEntry = store.entries[dk].length>0;
+    let msg = '', ctas = '';
+    if(!store.profile){ msg = "Étape 1/4 : Évalue ton profil pour personnaliser les conseils."; ctas = `<button class=\"btn primary\" onclick=\"document.querySelector('[data-tab=\'profil\']').click()\">Faire mon profil</button>`; }
+    else if(!hasRoutine){ msg = "Étape 2/4 : Choisis 2–3 piliers durables (routine)."; ctas = `<button class=\"btn primary\" onclick=\"document.querySelector('[data-tab=\'routine\']').click()\">Créer ma routine</button>`; }
+    else if(!hasDetox){ msg = "Étape 3/4 : Sélectionne une habitude à réduire (detox)."; ctas = `<button class=\"btn primary\" onclick=\"document.querySelector('[data-tab=\'detox\']').click()\">Configurer la detox</button>`; }
+    else if(!hasEntry){ msg = "Étape 4/4 : Ajoute ta première activité aujourd’hui."; ctas = `<button class=\"btn primary\" data-open=\"add-activity\">Ajouter une activité</button>`; }
+    else {
+      // Ongoing guidance
+      msg = s.advice;
+      ctas = `<button class=\"btn\" data-open=\"rate-metrics\">Noter ma journée</button>`;
+    }
+    coach.innerHTML = `<div class=\"muted\">${msg}</div><div class=\"row\">${ctas}</div>`;
+  }
+
+  // ===== Nav badges ===========================================================
+  function renderNavBadges(){
+    const dk = todayKey(); ensureDay(dk);
+    const s = dailySummary(dk);
+    $('#b-total').textContent = String(s.total);
+    $('#b-routine').textContent = `${Object.values(store.routine.checks[dk]||{}).filter(Boolean).length}/${store.routine.items.length}`;
+    $('#b-detox').textContent = store.detox? 'Actif' : '—';
+  }
+
+  // ===== Onboarding ===========================================================
+  const steps = [
+    // 0 Welcome + name + goal
+    () => `<div class=\"list\"><div><label>Ton prénom</label><input id=\"ob-name\" class=\"input\" placeholder=\"Ex: Alex\" value=\"${store.user?.name||''}\" /></div>
+           <div><label>Objectif principal</label><select id=\"ob-goal\" class=\"input\">
+            <option value=\"focus\" ${store.user?.goal==='focus'?'selected':''}>Concentration</option>
+            <option value=\"sleep\" ${store.user?.goal==='sleep'?'selected':''}>Sommeil</option>
+            <option value=\"energy\" ${store.user?.goal==='energy'?'selected':''}>Énergie stable</option>
+            <option value=\"reduce_screen\" ${store.user?.goal==='reduce_screen'?'selected':''}>Réduire l’écran</option>
+           </select></div></div>`,
+    // 1 Quick profile (reuse sliders)
+    () => `<div class=\"list\"><div class=\"muted\">Auto-évalue ces dimensions (0–4).</div>
+      <label>Impulsivité numérique<input type=\"range\" min=\"0\" max=\"4\" value=\"2\" id=\"oq1\"></label>
+      <label>Récompense rapide<input type=\"range\" min=\"0\" max=\"4\" value=\"2\" id=\"oq2\"></label>
+      <label>Énergie soutenue<input type=\"range\" min=\"0\" max=\"4\" value=\"2\" id=\"oq3\"></label>
+      <label>Concentration profonde<input type=\"range\" min=\"0\" max=\"4\" value=\"2\" id=\"oq4\"></label>
+      <label>Sommeil<input type=\"range\" min=\"0\" max=\"4\" value=\"2\" id=\"oq5\"></label></div>`,
+    // 2 Routine picker
+    () => `<div class=\"list\"><div class=\"muted\">Choisis jusqu’à 3 piliers durables :</div>
+      ${ACTIVITY_TEMPLATES.filter(t=>t.type==='durable').map(t=>`<label><input type=\"checkbox\" data-ob-choose=\"${t.id}\"> ${t.name}</label>`).join('')}</div>`,
+    // 3 Detox selection
+    () => `<div class=\"list\"><div class=\"muted\">Choisis 1 habitude immédiate à réduire :</div>
+      <select id=\"ob-detox\">${ACTIVITY_TEMPLATES.filter(t=>t.type==='immediate').map(t=>`<option value=\"${t.id}\">${t.name}</option>`).join('')}</select>
+      <div class=\"row\"><input id=\"ob-base\" class=\"input\" type=\"number\" min=\"0\" placeholder=\"Baseline/j\"> <input id=\"ob-target\" class=\"input\" type=\"number\" min=\"0\" placeholder=\"Cible/j\"></div>
+      </div>`,
+    // 4 Finish
+    () => `<div class=\"list\"><div class=\"kpi\"><span class=\"muted\">Tout est prêt</span><span class=\"v\">Commençons 🎉</span></div>
+            <div>Tu peux ajouter une activité durable dès maintenant, puis noter ta journée ce soir.</div></div>`
+  ];
+  let obIndex = 0;
+
+  function openOnboarding(){
+    const dlg = $('#dlg-onboard'); const stepBox = $('#ob-step'); const back = $('#ob-back'); const next = $('#ob-next');
+    back.disabled = true; stepBox.innerHTML = steps[0]();
+    dlg.showModal();
+
+    dlg.addEventListener('close', (ev)=>{
+      if(dlg.returnValue==='cancel') return; // user closed
+      // keep open unless finished
+    });
+
+    dlg.addEventListener('click', (e)=>{ /* prevent backdrop click */ });
+
+    $('#onboard-form').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const val = e.submitter?.value;
+      if(val==='back'){
+        obIndex = Math.max(0, obIndex-1); back.disabled = obIndex===0; stepBox.innerHTML = steps[obIndex](); return;
+      }
+      if(val==='next'){
+        // persist step data if relevant
+        if(obIndex===0){ store.user.name = $('#ob-name').value.trim(); store.user.goal = $('#ob-goal').value; saveStore(); }
+        if(obIndex===1){ const s={ q1:+$('#oq1').value, q2:+$('#oq2').value, q3:+$('#oq3').value, q4:+$('#oq4').value, q5:+$('#oq5').value };
+          const immediateLoad=s.q1+s.q2, durableCapacity=s.q3+s.q4+s.q5; let segment='equilibre'; if(immediateLoad-durableCapacity>=3) segment='dominance_immediate'; else if(durableCapacity-immediateLoad>=3) segment='dominance_durable';
+          store.profile = { segment, scores:s }; saveStore(); }
+        if(obIndex===2){ const chosen=[...$$('[data-ob-choose]:checked')].slice(0,3).map(el=>el.getAttribute('data-ob-choose')); store.routine.items = chosen.map(id=>({ templateId:id, targetPerDay:1 })); saveStore(); }
+        if(obIndex===3){ const targetTemplateId=$('#ob-detox').value; const baselinePerDay=+($('#ob-base').value||0); const targetPerDay=+($('#ob-target').value||0); if(targetPerDay>baselinePerDay) return alert('La cible doit être ≤ baseline'); store.detox={ targetTemplateId, baselinePerDay, targetPerDay, startDate: todayKey(), avoidedCount:0 }; saveStore(); }
+
+        obIndex++;
+        if(obIndex>=steps.length){ localStorage.setItem('onboarding_complete','1'); dlg.close(); render(); renderCoach(); renderNavBadges(); return; }
+        back.disabled = false; stepBox.innerHTML = steps[obIndex]();
+      }
+    });
+  }
+
+  // ===== Top helpers (tour & help) ============================================
+  $('#btn-tour').onclick = () => openOnboarding();
+  $('#btn-help').onclick = () => alert('Parcours recommandé:
+1) Onglet Profil → calcule ton segment.
+2) Onglet Routine → choisis 2–3 piliers.
+3) Onglet Detox → définis une habitude à réduire.
+4) Onglet Journal → enregistre tes activités.
+5) Onglet Données → note ta journée & exporte.');
+
+  // ===== Init & render orchestrator ===========================================
+  function render(){
+    renderDashboard();
+    if(!$('#journal').hidden) renderJournal();
+    if(!$('#routine').hidden) renderRoutine();
+    if(!$('#detox').hidden) renderDetox();
+    if(!$('#profil').hidden) renderProfile();
+    if(!$('#data').hidden) renderMetricsTrends();
+    renderNavBadges();
+  }
+
+  ensureDay(todayKey());
+  if(!localStorage.getItem('onboarding_complete')) openOnboarding();
+
+  // wire minor
+  $('#journal-date')?.addEventListener('change', drawEntries);
+
+  // initial render
+  render();
+  </script>
+</body>
+</html>
